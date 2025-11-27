@@ -1,1 +1,887 @@
-<!-- New file created by Smiley Face Dev: Arcade -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Games Arcade - Funz.com</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary-blue': '#1d4ed8',     
+                        'secondary-accent': '#4f46e5', 
+                        'tertiary-accent': '#06b6d4',  
+                        'x-color': '#dc2626',          
+                        'o-color': '#2563eb',          
+                        'quiz-color': '#f59e0b',       
+                        'memory-color': '#10b981',     
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Custom Styles (for games only) -->
+    <style>
+        .game-view {
+            display: none;
+        }
+        .modal-background {
+            background-color: rgba(0, 0, 0, 0.6);
+        }
+
+        /* Tic-Tac-Toe Styles */
+        .tictactoe-board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            width: 90vmin;
+            height: 90vmin;
+            max-width: 400px; 
+            max-height: 400px;
+            margin: 20px auto;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+        .cell {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 4rem;
+            font-weight: bold;
+            cursor: pointer;
+            border: 3px solid #cbd5e1;
+            transition: background-color 0.2s;
+            user-select: none;
+        }
+        .cell:hover:not(.x-marker):not(.o-marker) {
+            background-color: #f3f4f6;
+        }
+        .cell:nth-child(3n) { border-right: none; }
+        .cell:nth-last-child(-n+3) { border-bottom: none; }
+        .cell:nth-child(3n+1) { border-left: none; }
+        .cell:nth-child(n+1):nth-child(-n+3) { border-top: none; }
+        .x-marker { color: #dc2626; } 
+        .o-marker { color: #2563eb; } 
+
+
+        /* Memory Match Styles */
+        .memory-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(4, 1fr);
+            gap: 10px;
+            width: 100%;
+            max-width: 450px;
+            margin: auto;
+            aspect-ratio: 1 / 1;
+        }
+        .memory-card {
+            background-color: #10b981;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: white;
+            cursor: pointer;
+            transition: transform 0.3s, background-color 0.3s;
+            transform-style: preserve-3d;
+            position: relative;
+            user-select: none;
+        }
+        .memory-card.flipped {
+            transform: rotateY(180deg);
+        }
+        .memory-card.matched {
+            pointer-events: none;
+            opacity: 0.5;
+        }
+        .card-face, .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+        }
+        .card-face {
+            background-color: white;
+            color: #1f2937;
+            transform: rotateY(180deg);
+            font-size: 2rem;
+        }
+        .card-back {
+            background-color: #10b981;
+        }
+    </style>
+</head>
+<body class="font-sans text-gray-800 bg-gray-50">
+
+    <!-- Navigation Bar -->
+    <header class="sticky top-0 z-50 bg-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <a href="index.html" class="text-3xl font-extrabold text-primary-blue tracking-tight">Funz.com</a>
+
+                <!-- Desktop Navigation Links -->
+                <nav class="hidden md:flex space-x-8">
+                    <a href="index.html" class="text-gray-600 hover:text-secondary-accent transition duration-150 ease-in-out font-medium">Home</a>
+                    <a href="reading.html" class="text-gray-600 hover:text-secondary-accent transition duration-150 ease-in-out font-medium">Read (Library)</a>
+                    <a href="games.html" class="text-gray-600 hover:text-secondary-accent transition duration-150 ease-in-out font-medium font-bold">Play Games</a>
+                    <a href="index.html#about" class="hover:text-secondary-accent transition duration-150 ease-in-out font-medium">About</a>
+                </nav>
+
+                <!-- Mobile Menu Button (Hamburger) -->
+                <button id="mobile-menu-button" class="md:hidden p-2 rounded-md text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-blue">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" /></svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content for GAMES -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-center">
+
+        <h1 class="text-4xl font-extrabold text-tertiary-accent mb-4">Fun Games Arcade</h1>
+        <a href="index.html" class="mb-6 inline-flex items-center text-primary-blue hover:text-secondary-accent transition font-medium">
+            <svg class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>Back to Home
+        </a>
+        <p class="text-xl text-gray-600 mb-10">Challenge yourself!</p>
+
+
+        <!-- GAME SELECTION GRID -->
+        <div id="game-selection-grid" class="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
+            <div class="bg-white p-6 rounded-2xl shadow-xl border-t-4 border-tertiary-accent hover:shadow-2xl transition duration-300 ease-in-out transform hover:-translate-y-1 cursor-pointer" onclick="showOpponentSelection('tictactoe')">
+                <div class="flex-shrink-0 mb-4"><div class="h-12 w-12 mx-auto flex items-center justify-center rounded-full bg-tertiary-accent text-white"><span class="font-bold text-xl">XO</span></div></div>
+                <h3 class="mt-2 text-xl font-bold text-gray-900">Tic-Tac-Toe</h3>
+                <p class="mt-2 text-base text-gray-500">Play against a friend or the Maestro Magnus bot!</p>
+                <span class="mt-4 inline-block text-tertiary-accent font-semibold">Play Now &rarr;</span>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl shadow-xl border-t-4 border-quiz-color hover:shadow-2xl transition duration-300 ease-in-out transform hover:-translate-y-1 cursor-pointer" onclick="startGame('quiz')">
+                <div class="flex-shrink-0 mb-4"><div class="h-12 w-12 mx-auto flex items-center justify-center rounded-full bg-quiz-color text-white">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9.228A4.5 4.5 0 0110.5 5.25v.75a2.25 2.25 0 00-2.25 2.25c0 .543.197 1.056.528 1.455M12 21h4.5a2.25 2.25 0 002.25-2.25V15m-4.5 4.5H12M3.75 6.75h4.5m4.5 0h4.5m-9 0a2.25 2.25 0 01-2.25-2.25V4.5A2.25 2.25 0 018.25 2.25h4.5a2.25 2.25 0 012.25 2.25V6.75m0 0a2.25 2.25 0 01-2.25 2.25H8.25m4.5 0h4.5" /></svg>
+                </div></div>
+                <h3 class="mt-2 text-xl font-bold text-gray-900">Quick Quiz</h3>
+                <p class="mt-2 text-base text-gray-500">Test your knowledge with fun and fast trivia challenges.</p>
+                <span class="mt-4 inline-block text-quiz-color font-semibold">Play Now &rarr;</span>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl shadow-xl border-t-4 border-memory-color hover:shadow-2xl transition duration-300 ease-in-out transform hover:-translate-y-1 cursor-pointer" onclick="startGame('memory')">
+                <div class="flex-shrink-0 mb-4"><div class="h-12 w-12 mx-auto flex items-center justify-center rounded-full bg-memory-color text-white">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                </div></div>
+                <h3 class="mt-2 text-xl font-bold text-gray-900">Memory Match</h3>
+                <p class="mt-2 text-base text-gray-500">Flip the cards and find matching pairs to win the game.</p>
+                <span class="mt-4 inline-block text-memory-color font-semibold">Play Now &rarr;</span>
+            </div>
+        </div>
+        
+        <!-- OPPONENT SELECTION VIEW -->
+        <div id="opponent-selection-view" class="game-view max-w-md mx-auto p-8 bg-white rounded-2xl shadow-2xl border-2 border-gray-100">
+            <button onclick="showGameSelection()" class="mb-6 inline-flex items-center text-primary-blue hover:text-secondary-accent transition font-medium">
+                <svg class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>Back to Game Select
+            </button>
+            <h2 class="text-3xl font-extrabold text-primary-blue mb-6">Choose Opponent</h2>
+            <div id="opponent-selection-context" class="text-center text-gray-600 mb-6"></div>
+            <div class="space-y-4" id="opponent-selection-buttons">
+                <button onclick="startGame('human')" class="w-full p-4 bg-secondary-accent text-white font-bold rounded-xl shadow-lg hover:bg-indigo-700 transition transform hover:scale-[1.01]">Play a Friend (Local)</button>
+                <button onclick="startGame('bot')" class="w-full p-4 bg-tertiary-accent text-white font-bold rounded-xl shadow-lg hover:bg-cyan-600 transition transform hover:scale-[1.01]">Play Maestro Magnus (Bot)</button>
+            </div>
+        </div>
+
+        <!-- 3.1. TIC-TAC-TOE GAME VIEW -->
+        <div id="tictactoe-game-view" class="game-view">
+            <button onclick="showOpponentSelection('tictactoe')" class="mb-6 inline-flex items-center text-primary-blue hover:text-secondary-accent transition font-medium">
+                <svg class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>Change Opponent
+            </button>
+            <h2 class="text-3xl font-extrabold text-primary-blue mb-4">Tic-Tac-Toe Challenge</h2>
+
+            <div class="max-w-md mx-auto p-4 bg-white rounded-2xl shadow-2xl border-2 border-gray-100">
+                <div id="player-profiles-container" class="space-y-3 mb-6"></div>
+                <div class="flex justify-between items-center mb-4 text-lg font-semibold text-gray-700">
+                    <span id="player-status" class="text-x-color">Your Turn (X)</span>
+                    <span id="game-status" class="text-gray-500">Play to win!</span>
+                </div>
+                <div id="tictactoe-board" class="tictactoe-board"></div>
+                <div class="mt-8 flex justify-center space-x-4">
+                    <button id="reset-button" onclick="tictactoe_resetGame()" class="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-xl shadow-md text-white bg-primary-blue hover:bg-blue-600 transform hover:scale-105 transition duration-300 ease-in-out">Reset Game</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3.2. QUICK QUIZ GAME VIEW -->
+        <div id="quiz-game-view" class="game-view max-w-xl mx-auto p-8 bg-white rounded-2xl shadow-2xl border-2 border-gray-100">
+            <button onclick="showGameSelection()" class="mb-6 inline-flex items-center text-primary-blue hover:text-secondary-accent transition font-medium">
+                <svg class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>Back to Game Select
+            </button>
+            <h2 class="text-3xl font-extrabold text-quiz-color mb-4">Quick Quiz Challenge</h2>
+            
+            <div id="quiz-content">
+                <div class="text-xl font-bold text-gray-800 mb-4" id="quiz-question-number">Question 1/5</div>
+                <p class="text-2xl font-semibold mb-6" id="quiz-question">Loading Question...</p>
+
+                <div id="quiz-options" class="space-y-4 text-left"></div>
+            </div>
+            
+            <div id="quiz-feedback" class="mt-6 text-xl font-bold h-6"></div>
+            <div id="quiz-results" class="mt-8 hidden">
+                <h3 class="text-2xl font-extrabold mb-4">Quiz Complete!</h3>
+                <p class="text-3xl font-bold text-quiz-color" id="final-score">Score: 0 / 5</p>
+                <button onclick="startQuiz()" class="mt-4 px-6 py-3 bg-quiz-color text-white font-bold rounded-full hover:bg-amber-600 transition">Play Again</button>
+            </div>
+        </div>
+
+        <!-- 3.3. MEMORY MATCH GAME VIEW -->
+        <div id="memory-game-view" class="game-view max-w-xl mx-auto p-8 bg-white rounded-2xl shadow-2xl border-2 border-gray-100">
+            <button onclick="showGameSelection()" class="mb-6 inline-flex items-center text-primary-blue hover:text-secondary-accent transition font-medium">
+                <svg class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>Back to Game Select
+            </button>
+            <h2 class="text-3xl font-extrabold text-memory-color mb-4">Memory Match Challenge</h2>
+            <div class="text-xl font-bold text-gray-800 mb-4" id="memory-status">Time to Match!</div>
+
+            <div id="memory-grid" class="memory-grid"></div>
+
+            <div id="memory-results" class="mt-8 hidden">
+                <h3 class="text-2xl font-extrabold mb-4">All Matched!</h3>
+                <p class="text-lg font-bold text-memory-color" id="memory-final-moves">Moves: 0</p>
+                <button onclick="startMemoryMatch()" class="mt-4 px-6 py-3 bg-memory-color text-white font-bold rounded-full hover:bg-emerald-600 transition">Play Again</button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Custom Modal/Message Box -->
+    <div id="message-modal" class="fixed inset-0 z-50 hidden items-center justify-center modal-background">
+        <div class="bg-white p-8 rounded-xl shadow-2xl max-w-sm w-full transform transition-all duration-300 ease-out scale-100">
+            <h3 id="modal-title" class="text-2xl font-bold mb-4 text-center text-gray-800">Game Over</h3>
+            <p id="modal-message" class="text-md text-gray-600 mb-6 text-center">The game has ended.</p>
+            <button id="modal-close-button" onclick="tictactoe_resetGame()" class="w-full py-3 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 transition">New Game</button>
+        </div>
+    </div>
+
+
+    <!-- Footer -->
+    <footer id="about" class="bg-gray-800 text-white mt-16 py-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <p>&copy; 2024 Funz.com. Built with Joy. | <a href="index.html#about" class="hover:text-secondary-accent">About</a></p>
+        </div>
+    </footer>
+
+    <!-- JavaScript Logic (Consolidated) -->
+    <script>
+        // =======================================================
+        // 1. GLOBAL STATE & CONSTANTS
+        // =======================================================
+        let board = Array(9).fill(''); // Tic-Tac-Toe board
+        let currentPlayer = 'X'; 
+        let gameActive = true;
+        let opponentType = 'human'; 
+        window.selectedGame = null; // Tracks which game is currently active
+
+        const HUMAN_MARK = 'X';
+        const BOT_MARK = 'O';
+        const BOT_NAME = 'Maestro Magnus';
+        const BOT_AVATAR = 'https://api.dicebear.com/7.x/bottts/svg?seed=magnus'; 
+
+        // Quiz State
+        const quizQuestions = [
+            { question: "Which planet is known as the Red Planet?", options: ["Earth", "Mars", "Jupiter", "Venus"], correctIndex: 1 },
+            { question: "What is the largest animal on Earth?", options: ["Elephant", "Blue Whale", "Great White Shark", "Giraffe"], correctIndex: 1 },
+            { question: "How many sides does a triangle have?", options: ["Two", "Three", "Four", "Five"], correctIndex: 1 },
+            { question: "Which gas do plants absorb from the atmosphere?", options: ["Oxygen", "Nitrogen", "Carbon Dioxide", "Hydrogen"], correctIndex: 2 },
+            { question: "What is the capital city of Japan?", options: ["Seoul", "Beijing", "Tokyo", "Bangkok"], correctIndex: 2 }
+        ];
+        let currentQuestionIndex = 0;
+        let quizScore = 0;
+
+        // Memory Match State
+        const memoryEmojis = ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼'];
+        let memoryBoard = [];
+        let flippedCards = [];
+        let matchedPairs = 0;
+        let moveCount = 0;
+        let lockBoard = false;
+
+
+        // =======================================================
+        // 2. DOM ELEMENTS 
+        // =======================================================
+        let boardElement, statusElement, playerStatusElement, playerProfilesContainer, modal, modalTitle, modalMessage, modalCloseButton, resetButton;
+        let quizContent, quizQuestionNumber, quizQuestionElement, quizOptionsContainer, quizFeedback, quizResults, finalScoreElement;
+        let memoryGrid, memoryStatus, memoryResults, memoryFinalMoves;
+
+
+        // =======================================================
+        // 3. UTILITY & AI FUNCTIONS
+        // =======================================================
+        
+        const winningConditions = [
+            [0, 1, 2], [3, 4, 5], [6, 7, 8], 
+            [0, 3, 6], [1, 4, 7], [2, 5, 8], 
+            [0, 4, 8], [2, 4, 6]            
+        ];
+
+        function checkWinner(currentBoard, mark) {
+            return winningConditions.some(combination => {
+                return combination.every(index => currentBoard[index] === mark);
+            });
+        }
+
+        function isBoardFull(currentBoard) {
+            return currentBoard.every(cell => cell !== '');
+        }
+
+        function getEmptySpots(currentBoard) {
+            return currentBoard.map((mark, index) => mark === '' ? index : -1).filter(index => index !== -1);
+        }
+
+        // --- MODAL (MESSAGE BOX) FUNCTIONS ---
+        function showMessage(title, message, winnerMark = null) {
+            modalTitle.textContent = title;
+            modalMessage.textContent = message;
+            
+            let colorClass = 'text-gray-800';
+            if (winnerMark === 'X') {
+                colorClass = 'text-green-600';
+            } else if (winnerMark === 'O') {
+                 colorClass = 'text-red-600';
+            }
+            
+            modalTitle.className = 'text-2xl font-bold mb-4 text-center ' + colorClass;
+            modalCloseButton.textContent = 'Start New Game';
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function hideMessage() {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        // --- BOT AI LOGIC (HEURISTIC STRATEGY) ---
+        function getBotMove(currentBoard) {
+            const possibleMoves = getEmptySpots(currentBoard);
+            
+            // 1. Check for a winning move for the Bot ('O')
+            for (const move of possibleMoves) {
+                let boardCopy = [...currentBoard];
+                boardCopy[move] = BOT_MARK;
+                if (checkWinner(boardCopy, BOT_MARK)) {
+                    return move;
+                }
+            }
+
+            // 2. Check if the Player ('X') can win and block them
+            for (const move of possibleMoves) {
+                let boardCopy = [...currentBoard];
+                boardCopy[move] = HUMAN_MARK;
+                if (checkWinner(boardCopy, HUMAN_MARK)) {
+                    return move;
+                }
+            }
+
+            // 3. Take the Center (index 4) if it's free
+            const center = 4;
+            if (currentBoard[center] === '') {
+                return center;
+            }
+
+            // 4. Take a Corner (indices 0, 2, 6, 8) if free
+            const corners = [0, 2, 6, 8];
+            const openCorners = possibleMoves.filter(move => corners.includes(move));
+            if (openCorners.length > 0) {
+                return openCorners[Math.floor(Math.random() * openCorners.length)];
+            }
+
+            // 5. Take an Edge (indices 1, 3, 5, 7) if free
+            if (possibleMoves.length > 0) {
+                return possibleMoves[Math.floor(Math.random() * possibleMoves.length)];
+            }
+
+            return -1; 
+        }
+
+        // --- SHARED RENDERING FUNCTIONS ---
+        function renderProfile(name, symbol, isBot, avatarUrl = null, isTurn = false) {
+            const turnClass = isTurn ? 'bg-yellow-100 ring-4 ring-yellow-300' : 'bg-gray-50';
+            const markColorClass = symbol === 'X' ? 'text-x-color' : 'text-o-color';
+            const iconContent = avatarUrl ? 
+                `<img src="${avatarUrl}" alt="${name}" class="w-10 h-10 object-cover rounded-full" />` :
+                `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 ${markColorClass}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>`;
+
+            return `
+                <div class="flex items-center p-3 rounded-xl shadow-md transition-all duration-300 ${turnClass}">
+                    <div class="w-10 h-10 flex items-center justify-center mr-3 rounded-full border-2 border-gray-300 overflow-hidden bg-white">
+                        ${iconContent}
+                    </div>
+                    <div class="text-left">
+                        <h4 class="font-bold text-lg">${name}</h4>
+                        <p class="text-sm text-gray-500">${isBot ? 'Bot (Unbeatable)' : 'Human Player'}</p>
+                    </div>
+                    <span class="ml-auto text-xl font-extrabold ${markColorClass}">${symbol}</span>
+                </div>
+            `;
+        }
+
+        function renderPlayerProfiles() {
+            if (!playerProfilesContainer) return;
+            
+            const player2IsBot = opponentType === 'bot';
+            const player2Name = player2IsBot ? BOT_NAME : 'Player 2';
+            const player2Avatar = player2IsBot ? BOT_AVATAR : null;
+            const player2IsTurn = currentPlayer === BOT_MARK;
+
+            const player1IsTurn = currentPlayer === HUMAN_MARK;
+            
+            playerProfilesContainer.innerHTML = '';
+
+            // Player 2 Profile (Top, always 'O')
+            playerProfilesContainer.innerHTML += renderProfile(
+                player2Name, 
+                BOT_MARK, 
+                player2IsBot, 
+                player2Avatar,
+                player2IsTurn
+            );
+
+            // Player 1 Profile (Bottom, always 'X')
+            playerProfilesContainer.innerHTML += renderProfile(
+                'You (Player 1)', 
+                HUMAN_MARK, 
+                false, 
+                null,
+                player1IsTurn
+            );
+        }
+
+        // --- TIC-TAC-TOE FUNCTIONS ---
+
+        window.tictactoe_renderBoard = function() {
+            const cells = document.querySelectorAll('#tictactoe-board .cell');
+            cells.forEach((cell, index) => {
+                cell.textContent = board[index];
+                cell.classList.remove('x-marker', 'o-marker');
+                if (board[index] === HUMAN_MARK) {
+                    cell.classList.add('x-marker');
+                } else if (board[index] === BOT_MARK) {
+                    cell.classList.add('o-marker');
+                }
+            });
+        }
+
+        function tictactoe_updateStatusDisplay() {
+            if (!gameActive) {
+                statusElement.textContent = 'Game Over';
+                return;
+            }
+
+            if (currentPlayer === HUMAN_MARK) {
+                playerStatusElement.textContent = 'Player 1\'s Turn (X)';
+                playerStatusElement.className = 'text-lg font-semibold text-x-color';
+                statusElement.textContent = 'Make your move.';
+            } else {
+                const opponentName = opponentType === 'bot' ? BOT_NAME : 'Player 2';
+                
+                playerStatusElement.textContent = `${opponentName}'s Turn (O)`;
+                playerStatusElement.className = 'text-lg font-semibold text-o-color';
+                statusElement.textContent = opponentType === 'bot' ? `${BOT_NAME} is thinking...` : 'Make your move.';
+            }
+            
+            renderPlayerProfiles();
+        }
+
+        function tictactoe_handleResult(winner) {
+            gameActive = false;
+            let title = 'Game Over';
+            let message = '';
+
+            if (winner === HUMAN_MARK) {
+                title = 'VICTORY!';
+                message = '🎉 Congratulations! Player 1 wins!';
+            } else if (winner === BOT_MARK) {
+                const winnerName = opponentType === 'bot' ? BOT_NAME : 'Player 2';
+                title = 'Defeat';
+                message = `🤖 ${winnerName} won this time. Better luck next time!`;
+            } else { // Draw
+                title = 'Draw';
+                message = 'It\'s a tie game! No winner.';
+            }
+            showMessage(title, message, winner);
+            tictactoe_updateStatusDisplay();
+        }
+
+        function tictactoe_checkForEndCondition() {
+            if (checkWinner(board, HUMAN_MARK)) {
+                tictactoe_handleResult(HUMAN_MARK);
+            } else if (checkWinner(board, BOT_MARK)) {
+                tictactoe_handleResult(BOT_MARK);
+            } else if (isBoardFull(board)) {
+                tictactoe_handleResult(null); // Draw
+            } else {
+                gameActive = true;
+            }
+        }
+
+        async function tictactoe_handleBotTurn() {
+            if (!gameActive || opponentType !== 'bot') return;
+            
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            const move = getBotMove([...board]); 
+            
+            if (move !== -1 && board[move] === '') {
+                board[move] = BOT_MARK;
+                currentPlayer = HUMAN_MARK;
+                tictactoe_renderBoard();
+                tictactoe_checkForEndCondition();
+                if (gameActive) {
+                    tictactoe_updateStatusDisplay();
+                }
+            }
+        }
+
+        window.handleCellClick = function(event) {
+            const index = parseInt(event.target.dataset.index);
+
+            if (!gameActive || board[index] !== '' || selectedGame !== 'tictactoe') {
+                return; 
+            }
+
+            const markToPlace = currentPlayer;
+
+            if (opponentType === 'bot') {
+                if (markToPlace !== HUMAN_MARK) return; 
+                
+                board[index] = HUMAN_MARK;
+                currentPlayer = BOT_MARK; 
+                tictactoe_renderBoard();
+                tictactoe_checkForEndCondition();
+
+                if (gameActive) {
+                    tictactoe_updateStatusDisplay();
+                    tictactoe_handleBotTurn();
+                }
+
+            } else { // opponentType === 'human' (Local Multiplayer)
+                
+                board[index] = markToPlace;
+                currentPlayer = markToPlace === HUMAN_MARK ? BOT_MARK : HUMAN_MARK; 
+                
+                tictactoe_renderBoard();
+                tictactoe_checkForEndCondition();
+                
+                if (gameActive) {
+                    tictactoe_updateStatusDisplay();
+                }
+            }
+        }
+
+        window.tictactoe_resetGame = function() {
+            board = Array(9).fill('');
+            currentPlayer = 'X';
+            gameActive = true;
+            hideMessage();
+            tictactoe_renderBoard();
+            tictactoe_updateStatusDisplay();
+        }
+
+
+        // --- QUIZ FUNCTIONS ---
+
+        window.startQuiz = function() {
+            selectedGame = 'quiz';
+            showGameView('quiz-game-view');
+            currentQuestionIndex = 0;
+            quizScore = 0;
+            quizResults.classList.add('hidden');
+            quizContent.classList.remove('hidden');
+            quizFeedback.textContent = '';
+            showQuizQuestion();
+        }
+
+        function showQuizQuestion() {
+            if (currentQuestionIndex >= quizQuestions.length) {
+                showQuizResults();
+                return;
+            }
+
+            const q = quizQuestions[currentQuestionIndex];
+            quizQuestionNumber.textContent = `Question ${currentQuestionIndex + 1}/${quizQuestions.length}`;
+            quizQuestionElement.textContent = q.question;
+            quizOptionsContainer.innerHTML = '';
+
+            q.options.forEach((option, index) => {
+                const button = document.createElement('button');
+                button.className = 'quiz-option w-full p-4 bg-gray-100 rounded-xl hover:bg-gray-200 transition text-lg font-medium text-left shadow-md';
+                button.textContent = `${String.fromCharCode(65 + index)}. ${option}`;
+                button.dataset.index = index;
+                button.onclick = () => handleQuizAnswer(index);
+                quizOptionsContainer.appendChild(button);
+            });
+        }
+
+        function handleQuizAnswer(selectedIndex) {
+            const q = quizQuestions[currentQuestionIndex];
+            const isCorrect = selectedIndex === q.correctIndex;
+            const options = document.querySelectorAll('.quiz-option');
+
+            options.forEach(btn => btn.disabled = true);
+
+            // Highlight chosen answer
+            options[selectedIndex].classList.remove('bg-gray-100', 'hover:bg-gray-200');
+            options[selectedIndex].classList.add(isCorrect ? 'bg-green-500' : 'bg-red-500', 'text-white');
+            
+            // Highlight correct answer if wrong answer was chosen
+            if (!isCorrect) {
+                 options[q.correctIndex].classList.add('bg-green-200', 'border-2', 'border-green-600', 'text-gray-800');
+            }
+
+            if (isCorrect) {
+                quizScore++;
+                quizFeedback.textContent = 'Correct! 🎉';
+                quizFeedback.classList.remove('text-red-600');
+                quizFeedback.classList.add('text-green-600');
+            } else {
+                quizFeedback.textContent = 'Incorrect. 😟';
+                quizFeedback.classList.remove('text-green-600');
+                quizFeedback.classList.add('text-red-600');
+            }
+
+            setTimeout(() => {
+                currentQuestionIndex++;
+                quizFeedback.textContent = '';
+                showQuizQuestion();
+            }, 1500);
+        }
+
+        function showQuizResults() {
+            quizContent.classList.add('hidden');
+            quizResults.classList.remove('hidden');
+            finalScoreElement.textContent = `Score: ${quizScore} / ${quizQuestions.length}`;
+        }
+
+
+        // --- MEMORY MATCH FUNCTIONS ---
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        window.startMemoryMatch = function() {
+            selectedGame = 'memory';
+            showGameView('memory-game-view');
+            // Setup the board with two sets of emojis
+            memoryBoard = shuffleArray([...memoryEmojis, ...memoryEmojis]).map((emoji, index) => ({
+                id: index,
+                emoji: emoji,
+                isFlipped: false,
+                isMatched: false
+            }));
+
+            flippedCards = [];
+            matchedPairs = 0;
+            moveCount = 0;
+            lockBoard = false;
+
+            memoryResults.classList.add('hidden');
+            renderMemoryBoard();
+            updateMemoryStatus();
+        }
+
+        function renderMemoryBoard() {
+            memoryGrid.innerHTML = '';
+            memoryBoard.forEach(card => {
+                const cardDiv = document.createElement('div');
+                cardDiv.className = `memory-card ${card.isFlipped ? 'flipped' : ''} ${card.isMatched ? 'matched' : ''}`;
+                cardDiv.dataset.id = card.id;
+
+                const cardFace = document.createElement('div');
+                cardFace.className = 'card-face';
+                cardFace.textContent = card.emoji;
+                
+                const cardBack = document.createElement('div');
+                cardBack.className = 'card-back';
+                cardBack.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" /></svg>`; 
+
+                cardDiv.appendChild(cardFace);
+                cardDiv.appendChild(cardBack);
+
+                if (!card.isMatched) {
+                    cardDiv.addEventListener('click', handleMemoryCardClick);
+                }
+                memoryGrid.appendChild(cardDiv);
+            });
+        }
+
+        function updateMemoryStatus() {
+            memoryStatus.textContent = `Moves: ${moveCount} | Pairs: ${matchedPairs}/${memoryEmojis.length}`;
+        }
+
+        function handleMemoryCardClick(event) {
+            if (lockBoard) return;
+            const cardElement = event.currentTarget;
+            const cardId = parseInt(cardElement.dataset.id);
+            const card = memoryBoard.find(c => c.id === cardId);
+
+            if (card.isFlipped || card.isMatched) return;
+
+            // Flip card and add to flipped list
+            card.isFlipped = true;
+            flippedCards.push(card);
+            renderMemoryBoard();
+
+            if (flippedCards.length === 2) {
+                lockBoard = true;
+                moveCount++;
+                updateMemoryStatus();
+                
+                const card1 = flippedCards[0];
+                const card2 = flippedCards[1];
+
+                if (card1.emoji === card2.emoji) {
+                    // Match found
+                    card1.isMatched = true;
+                    card2.isMatched = true;
+                    matchedPairs++;
+                    lockBoard = false;
+                    flippedCards = [];
+                    renderMemoryBoard(); 
+
+                    if (matchedPairs === memoryEmojis.length) {
+                        showMemoryResults();
+                    }
+                } else {
+                    // No match, flip them back after a delay
+                    setTimeout(() => {
+                        card1.isFlipped = false;
+                        card2.isFlipped = false;
+                        flippedCards = [];
+                        lockBoard = false;
+                        renderMemoryBoard();
+                    }, 1000);
+                }
+            }
+        }
+
+        function showMemoryResults() {
+            memoryFinalMoves.textContent = `Moves: ${moveCount}`;
+            memoryResults.classList.remove('hidden');
+        }
+
+
+        // =======================================================
+        // 4. SPA NAVIGATION & INITIALIZATION LOGIC
+        // =======================================================
+
+        // Function to safely show one of the internal game views
+        function showGameView(gameId) {
+            document.querySelectorAll('.game-view').forEach(view => {
+                view.style.display = 'none';
+            });
+            const targetView = document.getElementById(gameId);
+            if (targetView) {
+                targetView.style.display = 'block';
+            }
+        }
+        
+        // Show the initial game selection grid
+        window.showGameSelection = function() {
+            document.getElementById('game-selection-grid').style.display = 'grid';
+            showGameView('none'); // Hide all specific game views
+        }
+
+        // Show the opponent selection view for Tic-Tac-Toe
+        window.showOpponentSelection = function(game) {
+            window.selectedGame = game;
+            document.getElementById('game-selection-grid').style.display = 'none';
+            showGameView('opponent-selection-view');
+            document.getElementById('opponent-selection-context').textContent = 
+                'Select an opponent for Tic-Tac-Toe.';
+        }
+
+        window.startGame = function(typeOrOpponent) {
+            if (typeOrOpponent === 'quiz') {
+                startQuiz();
+            } else if (typeOrOpponent === 'memory') {
+                startMemoryMatch();
+            } else if (window.selectedGame === 'tictactoe') {
+                opponentType = typeOrOpponent; // 'human' or 'bot'
+                showGameView('tictactoe-game-view');
+                tictactoe_resetGame();
+            }
+        }
+        
+        // --- INITIALIZATION ---
+        function initGamesPage() {
+            // 4.1. Get all persistent DOM elements
+            boardElement = document.getElementById('tictactoe-board');
+            statusElement = document.getElementById('game-status');
+            playerStatusElement = document.getElementById('player-status');
+            playerProfilesContainer = document.getElementById('player-profiles-container');
+            modal = document.getElementById('message-modal');
+            modalTitle = document.getElementById('modal-title');
+            modalMessage = document.getElementById('modal-message');
+            modalCloseButton = document.getElementById('modal-close-button');
+            resetButton = document.getElementById('reset-button');
+            
+            // Get Quiz elements
+            quizContent = document.getElementById('quiz-content');
+            quizQuestionNumber = document.getElementById('quiz-question-number');
+            quizQuestionElement = document.getElementById('quiz-question');
+            quizOptionsContainer = document.getElementById('quiz-options');
+            quizFeedback = document.getElementById('quiz-feedback');
+            quizResults = document.getElementById('quiz-results');
+            finalScoreElement = document.getElementById('final-score');
+
+            // Get Memory elements
+            memoryGrid = document.getElementById('memory-grid');
+            memoryStatus = document.getElementById('memory-status');
+            memoryResults = document.getElementById('memory-results');
+            memoryFinalMoves = document.getElementById('memory-final-moves');
+
+            // 4.2. Setup Tic-Tac-Toe board cells
+            if (boardElement) {
+                boardElement.innerHTML = '';
+                for (let i = 0; i < 9; i++) {
+                    const cell = document.createElement('div');
+                    cell.classList.add('cell');
+                    cell.dataset.index = i;
+                    cell.addEventListener('click', handleCellClick);
+                    boardElement.appendChild(cell);
+                }
+            }
+
+            // 4.3. Setup general listeners
+            if (modalCloseButton) modalCloseButton.addEventListener('click', tictactoe_resetGame);
+            const quizRestartButton = document.querySelector('#quiz-results button');
+            if (quizRestartButton) quizRestartButton.addEventListener('click', startQuiz);
+            const memoryRestartButton = document.querySelector('#memory-results button');
+            if (memoryRestartButton) memoryRestartButton.addEventListener('click', startMemoryMatch);
+
+            // 4.4. Check URL hash to determine initial view
+            const hash = window.location.hash.substring(1);
+            if (hash === 'tictactoe') {
+                showOpponentSelection('tictactoe');
+            } else {
+                showGameSelection(); // Default to game selection grid
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', initGamesPage);
+    </script>
+</body>
+</html>
