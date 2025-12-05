@@ -1,303 +1,97 @@
-/**
- * server.js — COMPLETE WORKING VERSION
- * Gemini 2.5-Flash chat server with SSE streaming + single-file frontend.
- */
-
+// ------------------------------------------------------------
+// ONE-SINGLE-FILE GEMINI 2.5 FLASH SERVER + CLIENT UI
+// ------------------------------------------------------------
 import express from "express";
-import cors from "cors";
-import dotenv from "dotenv";
-import axios from "axios";
-
-dotenv.config();
-
-const API_KEY = process.env.API_KEY;
-const MODEL = process.env.MODEL || "gemini-2.5-flash";
-const PORT = parseInt(process.env.PORT || "3000", 10);
-
-if (!API_KEY) {
-  console.error("❌ ERROR: Missing API_KEY in .env");
-  process.exit(1);
-}
+import path from "path";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const app = express();
-app.use(cors());
 app.use(express.json());
 
-/* -----------------------------------------------------------
-   FRONTEND HTML — Served directly from RAM
------------------------------------------------------------- */
-
-const HTML = `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Gemini 2.5 Flash Chat</title>
-  <style>
-    body {
-      margin: 0;
-      font-family: Arial;
-      background: #111;
-      color: white;
-      display: flex;
-      height: 100vh;
-    }
-    #sidebar {
-      width: 260px;
-      background: #1a1a1a;
-      padding: 20px;
-      box-sizing: border-box;
-      border-right: 1px solid #333;
-      overflow-y: auto;
-    }
-    #chat {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-    }
-    #messages {
-      flex: 1;
-      overflow-y: auto;
-      padding: 20px;
-    }
-    .msg {
-      margin-bottom: 18px;
-      white-space: pre-wrap;
-      line-height: 1.4em;
-      max-width: 70%;
-      padding: 12px 14px;
-      border-radius: 14px;
-    }
-    .user {
-      background: #2d2d2d;
-      margin-left: auto;
-    }
-    .bot {
-      background: #0066ff;
-      color: white;
-      margin-right: auto;
-    }
-
-    #inputBox {
-      display: flex;
-      border-top: 1px solid #333;
-    }
-    #textInput {
-      flex: 1;
-      padding: 12px;
-      font-size: 16px;
-      background: #222;
-      color: white;
-      border: none;
-      outline: none;
-    }
-    #sendBtn {
-      width: 120px;
-      background: #0080ff;
-      border: none;
-      outline: none;
-      color: white;
-      font-weight: bold;
-      cursor: pointer;
-    }
-  </style>
-</head>
-<body>
-
-<div id="sidebar">
-  <h2>⚡ Gemini Chat</h2>
-  <p>Model: <b>${MODEL}</b></p>
-  <p style="font-size:14px;color:#888;">Server-powered streaming</p>
-  <hr style="border-color:#333;">
-  <p><small>Edit server.js to customize system instructions.</small></p>
-</div>
-
-<div id="chat">
-  <div id="messages"></div>
-
-  <div id="inputBox">
-    <input id="textInput" placeholder="Say something..." autocomplete="off" />
-    <button id="sendBtn">Send</button>
-  </div>
-</div>
-
-<script>
-let history = [];
-let sending = false;
-
-function addMsg(role, text) {
-  const box = document.getElementById("messages");
-  const div = document.createElement("div");
-  div.className = "msg " + role;
-  div.textContent = text;
-  box.appendChild(div);
-  box.scrollTop = box.scrollHeight;
-}
-
-async function sendMessage() {
-  if (sending) return;
-  const input = document.getElementById("textInput");
-  const text = input.value.trim();
-  if (!text) return;
-
-  sending = true;
-  input.value = "";
-
-  addMsg("user", text);
-
-  history.push({
-    role: "user",
-    parts: [{ text }]
-  });
-
-  const response = await fetch("/api/chat", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      history,
-      systemInstruction: "You are a helpful AI assistant."
-    })
-  });
-
-  const reader = response.body.getReader();
-  let botText = "";
-  let botElement = null;
-
-  function createBotBubble() {
-    botElement = document.createElement("div");
-    botElement.className = "msg bot";
-    botElement.textContent = "";
-    document.getElementById("messages").appendChild(botElement);
-  }
-
-  createBotBubble();
-
-  const decoder = new TextDecoder();
-
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-
-    const chunkStr = decoder.decode(value);
-    const lines = chunkStr.split("\\n");
-
-    for (let line of lines) {
-      if (line.startsWith("data: ")) {
-        const json = JSON.parse(line.replace("data: ", ""));
-        if (json.chunk) {
-          botText += json.chunk;
-          botElement.textContent = botText;
-          document.getElementById("messages").scrollTop =
-            document.getElementById("messages").scrollHeight;
-        }
-      }
-    }
-  }
-
-  history.push({
-    role: "model",
-    parts: [{ text: botText }]
-  });
-
-  sending = false;
-}
-
-document.getElementById("sendBtn").onclick = sendMessage;
-document.getElementById("textInput").onkeypress = (e) => {
-  if (e.key === "Enter") sendMessage();
-};
-</script>
-
-</body>
-</html>
+// ------------------------------------------------------------
+// 1. INLINE BASE64-ENCODED HTML APP (Gemini-style interface)
+// ------------------------------------------------------------
+const htmlBase64 = `
+PGh0bWw+CiAgPGhlYWQ+CiAgICAgIDxtZXRhIGNoYXJzZXQ9InV0Zi04Ij4KICAgICAgPHRpdGxl
+PkdFTUlOSSBBUFA8L3RpdGxlPgogICAgICA8c3R5bGU+CiAgICAgICAgYm9keSB7CiAgICAgICAg
+ICAgIGJhY2tncm91bmQ6ICMyMjI7CiAgICAgICAgICAgIGNvbG9yOiB3aGl0ZTsKICAgICAgICAg
+ICAgZm9udC1mYW1pbHk6IHNhbnMtc2VyaWY7CiAgICAgICAgICAgIG1hcmdpbjogMDsKICAgICAg
+ICAgICAgcGFkZGluZzogMjBweDsKICAgICAgICB9CiAgICAgICAgI2NoYXQgewogICAgICAgICAg
+ICBib3JkZXI6IDFweCBzb2xpZCB3aGl0ZTsKICAgICAgICAgICAgcGFkZGluZzogMTBweDsKICAg
+ICAgICAgICAgbWF4LWhlaWdodDogNzB2aDsKICAgICAgICAgICAgb3ZlcmZsb3cteTogc2Nyb2xs
+OwogICAgICAgIH0KICAgICAgICAjbXNnc19jb250YWluZXIgewogICAgICAgICAgICBtYXJnaW4t
+dG9wOiAxMHB4OwogICAgICAgIH0KICAgICAgICAubXNnIHsKICAgICAgICAgICAgcGFkZGluZzog
+MTBweDsKICAgICAgICB9CiAgICAgICAgLmFpIHsKICAgICAgICAgICAgYmFja2dyb3VuZDogIzMz
+MzsKICAgICAgICAgICAgcGFkZGluZzogMTBweDsKICAgICAgICAgICAgYm9yZGVyLXJhZGl1czog
+OHB4OwogICAgICAgIH0KICAgICAgPC9zdHlsZT4KICA8L2hlYWQ+CiAgPGJvZHk+CiAgICA8aDE+
+R0VNSU5JIDIuNSBGTElTIA0KICAgIDwvaDE+CiAgICA8ZGl2IGlkPSJjaGF0Ij48L2Rpdj4KICAg
+IDxkaXYgaWQ9Im1zZ3NfY29udGFpbmVyIj48L2Rpdj4KICAgIDxmb3JtIGlkPSJmb3JtIj4KICAg
+ICAgPGlucHV0IGlkPSJ0eHQiIHBsYWNlaG9sZGVyPSJTYXkgaGVyZSIgc3R5bGU9IndpZHRoOiA4
+MCU7IHBhZGRpbmc6IDEwcHg7IGJvcmRlcjogMXB4IHNvbGlkICM0NDQ7IGJvcmRlci1yYWRpdXM6
+IDVweDsiIC8+CiAgICAgIDxidXR0b24gc3R5bGU9InBhZGRpbmc6IDEwcHggMjBweDsgbWFyZ2lu
+LWxlZnQ6IDEwcHg7IGJvcmRlcjogbm9uZTsgYm9yZGVyLXJhZGl1czogNHB4OyBiYWNrZ3JvdW5k
+OiAjNjY2OyBjb2xvcjogI2ZmZiIgdHlwZT0ic3VibWl0Ij5TZW5kPC9idXR0b24+CiAgICA8L2Zv
+cm0+CiAgICA8c2NyaXB0PgogICAgICBjb25zdCBjaGF0Qm94ID0gZG9jdW1lbnQuZ2V0RWxlbWVu
+dEJ5SWQoImNoYXQiKTsKICAgICAgY29uc3QgbXNncyA9IGRvY3VtZW50LmdldEVsZW1lbnRCeUlk
+KCJtc2dzX2NvbnRhaW5lciIpOwogICAgICBjb25zdCBmb3JtID0gZG9jdW1lbnQuZ2V0RWxlbWVu
+dEJ5SWQoImZvcm0iKTsKICAgICAgY29uc3QgdHh0ID0gZG9jdW1lbnQuZ2V0RWxlbWVuZW50QnlJ
+ZCgicHhUIik7CiAgICAgIGZvcm0uYWRkRXZlbnRMaXN0ZW5lcigiaW5wdXQiLCBhc3luYyAoZSk9
+PntlLnByZXZlbnREZWZhdWx0KCk7CiAgICAgICAgY29uc3QgbXNnID0gdHh0LnZhbHVlLnRyaW0o
+KTsKICAgICAgICBpZiAoIW1zZykgcmV0dXJuOwogICAgICAgIHBvc3RNZXNzYWdlKCJ5b3UiLCBt
+c2cpOwogICAgICAgIHR4dC52YWx1ZSA9ICIiOwogICAgICAgIGNvbnN0IHNlc3MgPSBuZXQgRXZl
+bnRTb3VyY2UoIi9hcGkvY2hhdCIsIHsKICAgICAgICAgIG1ldGhvZDogIlBPU1QiLAogICAgICAg
+ICAgIGhlYWRlcnM6IHsgIkNvbnRlbnQtdHlwZSI6ICJhcHBsaWNhdGlvbi9qc29uIiB9LAogICAg
+ICAgICAgIGJvZHk6IEpTT04uc3RyaW5naWZ5KHsgbWVzc2FnZTogbXNnLCBoaXN0b3J5OiBnZXRB
+bGxNZXNzYWdlcygpIH0pCiAgICAgICAgfSk7CiAgICAgICAgZm9yIGF3YWl0IChjb25zdCBjaHVu
+ayBvZiBzZXNzKSB7CiAgICAgICAgICBjb25zdCBkYXRhID0gSlNPTi5wYXJzZShjaHVuay5kYXRh
+KTsKICAgICAgICAgICBhcHBlbmRMdW5lKCJnZW1pbmkiLCBkYXRhLmNob3BzKTsKICAgICAgICB9
+CiAgICAgIH0pOwogICAgICBmdW5jdGlvbiBhZGRNZXNzYWdlKHJvbGUsIHRleHQpIHsKICAgICAg
+ICBjb25zdCBkaXYgPSBkb2N1bWVudC5jcmVhdGVFbGVtZW50KCJkaXYiKTsKICAgICAgICBkaXYu
+c3R5bGUucGFkZGluZz0iMTBweCI7CiAgICAgICAgZGl2LnN0eWxlLm1hcmdpbj0iMTBweCAwIjtc
+CiAgICAgICAgZGl2LnN0eWxlYmFja2dyb3VuZD0gI3MzMzsKICAgICAgICBkaXYuaW5uZXJUZXh0
+ID0gIjxiPiIgKyByb2xlICsgIjwvYj46ICIgKyB0ZXh0OwogICAgICAgIG1zZ3MuYXBwZW5kQ2hp
+bGQoZGl2KTsKICAgICAgICBtc2dzLnNjcm9sbFRvcCA9IG1zZ3Muc2Nyb2xsSGVpZ2h0OwogICAg
+ICB9CiAgICAgIGZ1bmN0aW9uIGdldEFsbE1lc3NhZ2VzKCkgewogICAgICAgIHJldHVybiBbXTsK
+ICAgICAgfQogICAgICBmdW5jdGlvbiBhcHBlbmRMdW5lKHJvbGUsIHRleHQpIHsKICAgICAgICBh
+ZGRNZXNzYWdlKHJvbGUsIHRleHQpOwogICAgICB9CiAgICA8L3NjcmlwdD4KICA8L2JvZHk+Cjwv
+aHRtbD4=
 `;
 
-/* -----------------------------------------------------------
-   Google API wrapper (non-streaming)
------------------------------------------------------------- */
-async function callGemini(contents) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
-    MODEL
-  )}:generateContent?key=${API_KEY}`;
+// Serve decoded HTML
+app.get("/", (req, res) => {
+  const html = Buffer.from(htmlBase64, "base64").toString("utf-8");
+  res.set("Content-Type", "text/html");
+  res.send(html);
+});
 
-  const payload = { contents };
+// ------------------------------------------------------------
+// 2. GEMINI 2.5 FLASH CHAT ENDPOINT (STREAMING)
+// ------------------------------------------------------------
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-  const resp = await axios.post(url, payload, {
-    headers: { "Content-Type": "application/json" },
-    timeout: 120000,
+app.post("/api/chat", async (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+
+  const { message } = req.body;
+
+  const chat = await model.generateContentStream({
+    contents: [{ role: "user", parts: [{ text: message }] }],
   });
 
-  return resp.data;
-}
-
-/* -----------------------------------------------------------
-   POST /api/chat — SSE chunking response
------------------------------------------------------------- */
-app.post("/api/chat", async (req, res) => {
-  try {
-    const { history = [], systemInstruction = "" } = req.body;
-
-    const contents = [];
-
-    if (systemInstruction.trim()) {
-      contents.push({
-        role: "system",
-        parts: [{ text: systemInstruction }]
-      });
-    }
-
-    for (const entry of history) {
-      if (!entry.role || !Array.isArray(entry.parts)) continue;
-
-      contents.push({
-        role: entry.role,
-        parts: entry.parts.map((p) => ({ text: p.text || "" }))
-      });
-    }
-
-    const data = await callGemini(contents);
-
-    let fullText =
-      data?.candidates?.[0]?.content?.parts?.[0]?.text ??
-      "⚠️ No response from model";
-
-    // SSE headers
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("Connection", "keep-alive");
-    res.flushHeaders();
-
-    const chunks = fullText.match(/.{1,40}/g) || [fullText];
-
-    for (const chunk of chunks) {
-      res.write(\`data: \${JSON.stringify({ chunk })}\\n\\n\`);
-      await new Promise((r) => setTimeout(r, 15));
-    }
-
-    res.write("event: done\\ndata: {}\\n\\n");
-    res.end();
-  } catch (err) {
-    console.error("❌ /api/chat error:", err);
-
-    res.write(
-      "event: error\\ndata: " +
-        JSON.stringify({ error: err.message || "Unknown error" }) +
-        "\\n\\n"
-    );
-    res.end();
+  for await (const chunk of chat.stream) {
+    const text = chunk.text();
+    res.write(JSON.stringify({ chops: text }) + "\n");
   }
+
+  res.end();
 });
 
-/* -----------------------------------------------------------
-   Serve HTML
------------------------------------------------------------- */
-app.get("/", (req, res) => {
-  res.send(HTML);
-});
+// ------------------------------------------------------------
+const PORT = 3000;
+app.listen(PORT, () =>
+  console.log(`Server running → http://localhost:${PORT}`)
+);
 
-/* -----------------------------------------------------------
-   Start server
------------------------------------------------------------- */
-app.listen(PORT, () => {
-  console.log(\`🚀 Gemini server running at http://localhost:\${PORT}\`);
-});
