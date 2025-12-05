@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drawing Studio - Funz.com</title>
+    <!-- Load Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        
+        // --- Firebase Configuration (Provided by environment) ---
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        let auth;
+        
+        const initAuth = async () => {
+            try {
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                
+                // Try to sign in anonymously if not already signed in
+                if (!auth.currentUser) {
+                    await signInAnonymously(auth);
+                }
+
+                onAuthStateChanged(auth, (user) => {
+                    const authButton = document.getElementById('auth-button');
+                    const userNameSpan = document.getElementById('user-name');
+                    
+                    if (user) {
+                        const uidDisplay = user.uid.substring(0, 8);
+                        userNameSpan.textContent = `User: ${uidDisplay}`;
+                        authButton.textContent = 'Sign Out';
+                        authButton.onclick = handleSignOut;
+                        authButton.classList.remove('bg-red-600');
+                        authButton.classList.add('bg-gray-500');
+                    } else {
+                        userNameSpan.textContent = 'Guest';
+                        authButton.textContent = 'Sign In';
+                        authButton.onclick = handleSignIn;
+                        authButton.classList.remove('bg-gray-500');
+                        authButton.classList.add('bg-red-600');
+                    }
+                });
+
+            } catch (error) {
+                console.error("Firebase Auth Error:", error);
+            }
+        };
+
+        const handleSignIn = async () => {
+            try {
+                await signInAnonymously(auth);
+            } catch (error) {
+                console.error("Anonymous Sign In Failed:", error);
+            }
+        };
+
+        const handleSignOut = async () => {
+            try {
+                await signOut(auth);
+            } catch (error) {
+                console.error("Sign Out Failed:", error);
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', initAuth);
+    </script>
+    
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary-blue': '#1d4ed8',     
+                        'secondary-accent': '#4f46e5', 
+                        'tertiary-accent': '#06b6d4',
+                        'studio-background': '#f3f4f6',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .canvas-container {
+            aspect-ratio: 4 / 3;
+            max-height: 70vh;
+        }
+        canvas {
+            touch-action: none;
+            background-color: white;
+            border: 1px solid #e5e7eb; 
+            width: 100%;
+            height: 100%;
+        }
+        #color-picker {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 40px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+        }
+        #color-picker::-webkit-color-swatch, #color-picker::-moz-color-swatch {
+            border-radius: 8px;
+            border: none;
+        }
+
+        .rainbow-gradient {
+            background: linear-gradient(
+                90deg, 
+                #ff595e,
+                #ffca3a,
+                #8ac926,
+                #1982c4,
+                #6a4c93
+            );
+        }
+    </style>
+</head>
+<body class="font-sans text-gray-800 bg-gray-50">
+
+    <!-- Navigation Bar -->
+    <header class="sticky top-0 z-50 bg-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <a href="index.html" class="text-3xl font-extrabold text-primary-blue tracking-tight">
+                    <span class="text-blue-400">F</span>
+                    <span class="text-primary-blue">unz</span>
+                    <span class="text-blue-400">.com</span>
+                </a>
+
+                <div class="flex items-center space-x-4">
+                    <!-- Desktop Navigation Links -->
+                    <nav class="hidden md:flex space-x-8">
+                        <a href="index.html" class="text-gray-600 hover:text-secondary-accent transition duration-150 ease-in-out font-medium">Home</a>
+                        <a href="reading.html" class="text-gray-600 hover:text-secondary-accent transition duration-150 ease-in-out font-medium">Reading</a>
+                        <a href="games.html" class="text-gray-600 hover:text-secondary-accent transition duration-150 ease-in-out font-medium">Games</a>
+                    </nav>
+
+                    <!-- Sign In/Sign Out Button -->
+                    <div class="hidden sm:flex items-center space-x-3">
+                        <span id="user-name" class="text-sm text-gray-500">Guest</span>
+                        <button 
+                            id="auth-button" 
+                            class="px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors bg-red-600 hover:bg-red-700" 
+                        >
+                            Sign In
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Drawing Content -->
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <h2 class="text-4xl font-extrabold text-secondary-accent mb-6 text-center">Unleash Your Creativity</h2>
+
+        <div class="bg-white p-4 sm:p-6 rounded-2xl shadow-2xl border-2 border-gray-100">
+
+            <!-- Controls Panel -->
+            <div class="flex flex-wrap items-center justify-center gap-2 md:gap-4 mb-4 p-2 **rainbow-gradient** rounded-xl shadow-inner">
+                
+                <!-- Color Dropdown (New Structure) -->
+                <div class="relative">
+                    <button id="color-dropdown-toggle" class="flex items-center p-3 rounded-lg bg-white hover:bg-gray-200 shadow-md border border-gray-300 transition-colors focus:ring-2 focus:ring-primary-blue">
+                        <span class="font-semibold text-gray-700">Color</span>
+                        <div id="active-color-swatch" class="w-4 h-4 ml-2 rounded-full inline-block border border-gray-400 shadow-inner" style="background-color: #000000;"></div>
+                    </button>
+                    
+                    <div id="color-dropdown-content" class="absolute z-50 hidden top-full mt-2 left-1/2 transform -translate-x-1/2 bg-white p-4 rounded-xl shadow-2xl border border-gray-200 min-w-max">
+                        
+                        <!-- NEW: Color Picker Input Container (Styling added here) -->
+                        <div class="mb-4 p-2 bg-gray-100 rounded-lg shadow-inner">
+                            <div class="mb-2 text-sm font-semibold text-gray-700 text-center">Choose Any Color</div>
+                            <input type="color" id="color-picker" value="#000000" class="w-full shadow-inner rounded-xl h-10">
+                        </div>
+                        
+                        <!-- NEW: Simplified Preset Grid -->
+                        <div class="mt-4 mb-2 text-sm font-semibold text-gray-700 text-center">Quick Presets</div>
+                        <div id="color-selector" class="grid grid-cols-4 gap-2">
+                            <!-- Color buttons filled by JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Brush Size -->
+                <div class="flex items-center gap-2 bg-white/70 p-2 rounded-lg shadow-inner">
+                    <label for="brushSize" class="font-semibold hidden sm:inline">Size:</label>
+                    <input type="range" id="brushSize" min="1" max="50" value="5" class="w-24 md:w-32 cursor-pointer"/>
+                    <span id="brushSizeValue" class="w-8 text-center font-medium">5</span>
+                </div>
+
+                <!-- Tools/Actions -->
+                <div class="flex items-center gap-2">
+                    <!-- UNDO / REDO BUTTONS -->
+                    <button id="undo-button" title="Undo" disabled class="p-2 rounded-lg transition-colors bg-white hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h5m-9 0h10a4 4 0 010 8h-1m-10 4h10a4 4 0 000-8h1" /><path stroke-linecap="round" stroke-linejoin="round" d="M12 20h9" /></svg>
+                    </button>
+                    <button id="redo-button" title="Redo" disabled class="p-2 rounded-lg transition-colors bg-white hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5m5 0h-10a4 4 0 000 8h1m10 4h-10a4 4 0 010-8h1" /><path stroke-linecap="round" stroke-linejoin="round" d="M12 20H3" /></svg>
+                    </button>
+                    <!-- ERASER / CLEAR / SAVE -->
+                    <button id="eraser-button" title="Eraser" class="p-2 rounded-lg transition-colors bg-white hover:bg-gray-200">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9.17l-4.74 4.74M16.74 7.17l-1.92-1.92a2.828 2.828 0 00-4 0L4 12.02V18h5.98l7.02-7.02a2.828 2.828 0 000-4z" /></svg>
+                    </button>
+                    <button id="clear-button" title="Clear Canvas" class="p-2 rounded-lg bg-white hover:bg-red-100 text-red-500 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    </button>
+                    <button id="save-button" title="Save Drawing" class="p-2 rounded-lg bg-white hover:bg-green-100 text-green-600 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Canvas Area -->
+            <div class="w-full mx-auto bg-gray-200 rounded-lg shadow-inner canvas-container">
+                <canvas id="drawing-canvas" class="w-full h-full block"></canvas>
+            </div>
+            
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white mt-16 py-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <p>&copy; 2024 Funz.com. Art makes the world better!</p>
+        </div>
+    </footer>
+
+    <!-- JavaScript Drawing Logic -->
+    <script>
+        const canvas = document.getElementById('drawing-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        let isDrawing = false;
+        let currentBrushColor = '#000000';
+        let currentBrushSize = 5;
+        let isErasing = false;
+        
+        // --- UNDO/REDO STATE ---
+        let undoStack = [];
+        let redoStack = [];
+        const MAX_HISTORY = 30; 
+        
+        // Simplified Presets
+        const colors = ['#EF4444', '#F97316', '#84CC16', '#14B8A6', '#0EA5E9', '#6366F1', '#A855F7', '#EC4899', '#000000', '#FFFFFF'];
+        const eraserButton = document.getElementById('eraser-button');
+        const brushSizeInput = document.getElementById('brushSize');
+        const brushSizeValueSpan = document.getElementById('brushSizeValue');
+        const colorSelector = document.getElementById('color-selector');
+        const undoButton = document.getElementById('undo-button');
+        const redoButton = document.getElementById('redo-button');
+        
+        const colorDropdownToggle = document.getElementById('color-dropdown-toggle');
+        const colorDropdownContent = document.getElementById('color-dropdown-content');
+        const activeColorSwatch = document.getElementById('active-color-swatch');
+        const colorPicker = document.getElementById('color-picker');
+
+        // --- 1. SETUP AND RESIZE ---
+
+        function resizeCanvas() {
+            const parent = canvas.parentElement;
+            if (!parent) return;
+
+            // 1. Get the current drawing as a snapshot
+            const previousState = undoStack.length > 0 ? undoStack[undoStack.length - 1] : null;
+            
+            // 2. Determine visual (CSS) dimensions
+            const visualWidth = parent.clientWidth;
+            const visualHeight = parent.clientHeight;
+            
+            // 3. Determine device pixel ratio for high-DPI scaling
+            const pixelRatio = window.devicePixelRatio || 1;
+
+            // 4. Set the canvas's internal size based on the ratio
+            canvas.width = visualWidth * pixelRatio;
+            canvas.height = visualHeight * pixelRatio;
+
+            // 5. Restore the context settings
+            setContextStyle();
+            
+            // 6. Scale the context to match the visual size
+            ctx.scale(pixelRatio, pixelRatio);
+            
+            // 7. Clear and redraw the previous state (if one exists)
+            clearCanvas(true); 
+            if (previousState) {
+                const img = new Image();
+                img.onload = function() {
+                    // Draw at the unscaled visual dimensions
+                    ctx.drawImage(img, 0, 0, visualWidth, visualHeight); 
+                    setContextStyle();
+                };
+                img.src = previousState;
+            }
+        }
+        
+        function setContextStyle() {
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            if (isErasing) {
+                ctx.shadowBlur = 0;
+                ctx.shadowColor = 'transparent';
+                ctx.strokeStyle = '#FFFFFF';
+            } else {
+                ctx.shadowBlur = 0.5;
+                ctx.shadowColor = '#00000040'; 
+                ctx.strokeStyle = currentBrushColor;
+            }
+            
+            ctx.lineWidth = currentBrushSize;
+        }
+
+        function clearCanvas(fillWhite = true, shouldSave = false) {
+            if (shouldSave) {
+                saveState();
+            }
+            
+            const visualWidth = canvas.clientWidth; 
+            const visualHeight = canvas.clientHeight;
+
+            ctx.save(); 
+            ctx.clearRect(0, 0, canvas.width, canvas.height); 
+            
+            if (fillWhite) {
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, visualWidth, visualHeight); 
+            }
+            ctx.restore();
+            setContextStyle();
+        }
+
+        // --- 2. HISTORY MANAGEMENT ---
+
+        function saveState(initial = false) {
+            const dataURL = canvas.toDataURL();
+
+            if (!initial && redoStack.length > 0) {
+                 redoStack = [];
+            }
+
+            if (undoStack.length === 0 || undoStack[undoStack.length - 1] !== dataURL) {
+                undoStack.push(dataURL);
+            }
+            
+            if (undoStack.length > MAX_HISTORY) {
+                undoStack.shift(); 
+            }
+
+            updateHistoryButtons();
+        }
+
+        function restoreState(sourceStack, destStack) {
+            if (sourceStack.length === 0) return;
+
+            const stateToSave = canvas.toDataURL();
+            destStack.push(stateToSave);
+            
+            const newStateURL = sourceStack.pop();
+
+            const img = new Image();
+            img.onload = function() {
+                const visualWidth = canvas.clientWidth;
+                const visualHeight = canvas.clientHeight;
+                
+                clearCanvas(true); 
+                ctx.drawImage(img, 0, 0, visualWidth, visualHeight); 
+                setContextStyle(); 
+                updateHistoryButtons();
+            };
+            img.src = newStateURL;
+            
+            if (destStack.length > MAX_HISTORY) {
+                destStack.shift(); 
+            }
+        }
+        
+        function updateHistoryButtons() {
+            undoButton.disabled = undoStack.length <= 1; 
+            redoButton.disabled = redoStack.length === 0;
+
+            if (!undoButton.disabled) {
+                undoButton.classList.add('active-history');
+            } else {
+                 undoButton.classList.remove('active-history');
+            }
+            if (!redoButton.disabled) {
+                 redoButton.classList.add('active-history');
+            } else {
+                 redoButton.classList.remove('active-history');
+            }
+        }
+
+
+        // --- 3. DRAWING LOGIC ---
+
+        function getEventPosition(event) {
+            const rect = canvas.getBoundingClientRect();
+            let clientX, clientY;
+
+            if (event.touches && event.touches.length > 0) {
+                clientX = event.touches[0].clientX;
+                clientY = event.touches[0].clientY;
+            } else {
+                clientX = event.clientX;
+                clientY = event.clientY;
+            }
+            
+            return { 
+                x: clientX - rect.left, 
+                y: clientY - rect.top 
+            };
+        }
+
+        function startDrawing(event) {
+            if (event.type === 'touchstart') event.preventDefault(); 
+            
+            setContextStyle();
+            
+            const pos = getEventPosition(event);
+            ctx.beginPath();
+            ctx.moveTo(pos.x, pos.y);
+            isDrawing = true;
+            colorDropdownContent.classList.add('hidden');
+        }
+
+        function draw(event) {
+            if (!isDrawing) return;
+            if (event.type === 'touchmove') event.preventDefault(); 
+
+            const pos = getEventPosition(event);
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+        }
+
+        function stopDrawing() {
+            if (!isDrawing) return;
+            ctx.closePath();
+            isDrawing = false;
+            
+            saveState(); 
+        }
+
+        // --- 4. TOOL HANDLERS ---
+        
+        function toggleColorDropdown(event) {
+            event.stopPropagation();
+            colorDropdownContent.classList.toggle('hidden');
+        }
+
+        function handleColorChange(newColor) {
+            currentBrushColor = newColor;
+            isErasing = false;
+            
+            // Update UI for eraser
+            eraserButton.classList.remove('bg-primary-blue', 'text-white', 'active');
+            eraserButton.classList.add('bg-white', 'hover:bg-gray-200');
+            
+            setContextStyle();
+            updateColorSelectorUI(newColor);
+            
+            colorPicker.value = newColor;
+
+            colorDropdownContent.classList.add('hidden');
+        }
+        
+        function updateColorSelectorUI(activeColor) {
+            activeColorSwatch.style.backgroundColor = activeColor;
+
+            colorSelector.querySelectorAll('button').forEach(btn => {
+                btn.classList.remove('border-blue-500', 'ring-2', 'ring-blue-500', 'color-active-bg'); 
+                
+                if (btn.style.backgroundColor.toLowerCase() === activeColor?.toLowerCase()) {
+                    btn.classList.add('border-blue-500', 'ring-2', 'ring-blue-500', 'color-active-bg'); 
+                }
+            });
+        }
+
+        function toggleEraser() {
+            isErasing = !isErasing;
+            colorDropdownContent.classList.add('hidden');
+
+            if (isErasing) {
+                eraserButton.classList.remove('bg-white', 'hover:bg-gray-200');
+                eraserButton.classList.add('bg-primary-blue', 'text-white', 'active');
+                updateColorSelectorUI(null); 
+            } else {
+                eraserButton.classList.remove('bg-primary-blue', 'text-white', 'active');
+                eraserButton.classList.add('bg-white', 'hover:bg-gray-200');
+                updateColorSelectorUI(currentBrushColor); 
+            }
+            setContextStyle();
+        }
+        
+        function handleClear() {
+            saveState();
+            clearCanvas(true);
+        }
+
+        function handleSave() {
+            const pixelRatio = window.devicePixelRatio || 1;
+            ctx.setTransform(1, 0, 0, 1, 0, 0); 
+            
+            const image = canvas.toDataURL("image/png");
+            const link = document.createElement('a');
+            link.href = image;
+            link.download = `funz_drawing_${Date.now()}.png`;
+            link.click();
+            
+            ctx.scale(pixelRatio, pixelRatio);
+            setContextStyle();
+        }
+
+        // --- 5. INITIALIZATION ---
+        
+        function initDrawing() {
+            // Populate color selector buttons (Presets)
+            colors.forEach(c => {
+                const button = document.createElement('button');
+                button.style.backgroundColor = c;
+                button.className = 'w-8 h-8 rounded-full border-2 border-gray-300 transition-all shadow-inner';
+                button.title = c;
+                button.onclick = () => handleColorChange(c);
+                colorSelector.appendChild(button);
+            });
+            
+            // Event Listeners
+            window.addEventListener('resize', resizeCanvas);
+            
+            // Drawing Listeners
+            canvas.addEventListener('mousedown', startDrawing);
+            canvas.addEventListener('mouseup', stopDrawing);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseleave', stopDrawing);
+            canvas.addEventListener('touchstart', startDrawing);
+            canvas.addEventListener('touchend', stopDrawing);
+            canvas.addEventListener('touchmove', draw);
+            
+            // Control Listeners
+            document.getElementById('clear-button').addEventListener('click', handleClear);
+            document.getElementById('save-button').addEventListener('click', handleSave);
+            eraserButton.addEventListener('click', toggleEraser);
+            colorDropdownToggle.addEventListener('click', toggleColorDropdown);
+            
+            // Color Picker Listener (Handle user selecting a color)
+            colorPicker.addEventListener('input', (e) => handleColorChange(e.target.value));
+
+            // Close dropdown on outside click
+            document.addEventListener('click', (e) => {
+                if (colorDropdownContent && !colorDropdownContent.classList.contains('hidden') && e.target !== colorDropdownToggle && !colorDropdownToggle.contains(e.target) && !colorDropdownContent.contains(e.target)) {
+                    colorDropdownContent.classList.add('hidden');
+                }
+            });
+            
+            // History Listeners
+            undoButton.addEventListener('click', () => {
+                if(undoStack.length > 1) { 
+                    restoreState(undoStack, redoStack);
+                }
+            });
+            redoButton.addEventListener('click', () => {
+                restoreState(redoStack, undoStack)
+            });
+
+            brushSizeInput.addEventListener('input', (e) => {
+                currentBrushSize = parseInt(e.target.value);
+                brushSizeValueSpan.textContent = currentBrushSize;
+                setContextStyle();
+            });
+
+            // Set initial state
+            resizeCanvas();
+            clearCanvas(true); 
+            handleColorChange(colors[8]); // Default to black
+            saveState(true); 
+            
+            // Final checks
+            setTimeout(resizeCanvas, 0); 
+            updateHistoryButtons();
+        }
+
+        document.addEventListener('DOMContentLoaded', initDrawing);
+    </script>
+</body>
+</html>
