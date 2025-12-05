@@ -1,13 +1,12 @@
 /**
- * server.js — COMPLETE VERSION
- * Single-file Gemini chat app with SSE-simulated streaming.
+ * server.js — COMPLETE WORKING VERSION
+ * Gemini 2.5-Flash chat server with SSE streaming + single-file frontend.
  */
 
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import axios from "axios";
-import path from "path";
 
 dotenv.config();
 
@@ -16,7 +15,7 @@ const MODEL = process.env.MODEL || "gemini-2.5-flash";
 const PORT = parseInt(process.env.PORT || "3000", 10);
 
 if (!API_KEY) {
-  console.error("ERROR: API_KEY not set in .env");
+  console.error("❌ ERROR: Missing API_KEY in .env");
   process.exit(1);
 }
 
@@ -24,20 +23,199 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-/* ============================================================
-   === Serve the SPA (HTML/JS/CSS) from memory ================
-   ============================================================ */
+/* -----------------------------------------------------------
+   FRONTEND HTML — Served directly from RAM
+------------------------------------------------------------ */
 
-const HTML = `<!DOCTYPE html>
-<html>
-<!-- (YOUR FULL HTML FROM YOUR MESSAGE — unchanged) -->
-${"".padEnd(1)} 
-</html>`;
+const HTML = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Gemini 2.5 Flash Chat</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial;
+      background: #111;
+      color: white;
+      display: flex;
+      height: 100vh;
+    }
+    #sidebar {
+      width: 260px;
+      background: #1a1a1a;
+      padding: 20px;
+      box-sizing: border-box;
+      border-right: 1px solid #333;
+      overflow-y: auto;
+    }
+    #chat {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    #messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+    }
+    .msg {
+      margin-bottom: 18px;
+      white-space: pre-wrap;
+      line-height: 1.4em;
+      max-width: 70%;
+      padding: 12px 14px;
+      border-radius: 14px;
+    }
+    .user {
+      background: #2d2d2d;
+      margin-left: auto;
+    }
+    .bot {
+      background: #0066ff;
+      color: white;
+      margin-right: auto;
+    }
 
-/* ============================================================
-   === Google API helper (non-streaming) =======================
-   ============================================================ */
-async function callGenerateContent(contents) {
+    #inputBox {
+      display: flex;
+      border-top: 1px solid #333;
+    }
+    #textInput {
+      flex: 1;
+      padding: 12px;
+      font-size: 16px;
+      background: #222;
+      color: white;
+      border: none;
+      outline: none;
+    }
+    #sendBtn {
+      width: 120px;
+      background: #0080ff;
+      border: none;
+      outline: none;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<div id="sidebar">
+  <h2>⚡ Gemini Chat</h2>
+  <p>Model: <b>${MODEL}</b></p>
+  <p style="font-size:14px;color:#888;">Server-powered streaming</p>
+  <hr style="border-color:#333;">
+  <p><small>Edit server.js to customize system instructions.</small></p>
+</div>
+
+<div id="chat">
+  <div id="messages"></div>
+
+  <div id="inputBox">
+    <input id="textInput" placeholder="Say something..." autocomplete="off" />
+    <button id="sendBtn">Send</button>
+  </div>
+</div>
+
+<script>
+let history = [];
+let sending = false;
+
+function addMsg(role, text) {
+  const box = document.getElementById("messages");
+  const div = document.createElement("div");
+  div.className = "msg " + role;
+  div.textContent = text;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+}
+
+async function sendMessage() {
+  if (sending) return;
+  const input = document.getElementById("textInput");
+  const text = input.value.trim();
+  if (!text) return;
+
+  sending = true;
+  input.value = "";
+
+  addMsg("user", text);
+
+  history.push({
+    role: "user",
+    parts: [{ text }]
+  });
+
+  const response = await fetch("/api/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      history,
+      systemInstruction: "You are a helpful AI assistant."
+    })
+  });
+
+  const reader = response.body.getReader();
+  let botText = "";
+  let botElement = null;
+
+  function createBotBubble() {
+    botElement = document.createElement("div");
+    botElement.className = "msg bot";
+    botElement.textContent = "";
+    document.getElementById("messages").appendChild(botElement);
+  }
+
+  createBotBubble();
+
+  const decoder = new TextDecoder();
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+
+    const chunkStr = decoder.decode(value);
+    const lines = chunkStr.split("\\n");
+
+    for (let line of lines) {
+      if (line.startsWith("data: ")) {
+        const json = JSON.parse(line.replace("data: ", ""));
+        if (json.chunk) {
+          botText += json.chunk;
+          botElement.textContent = botText;
+          document.getElementById("messages").scrollTop =
+            document.getElementById("messages").scrollHeight;
+        }
+      }
+    }
+  }
+
+  history.push({
+    role: "model",
+    parts: [{ text: botText }]
+  });
+
+  sending = false;
+}
+
+document.getElementById("sendBtn").onclick = sendMessage;
+document.getElementById("textInput").onkeypress = (e) => {
+  if (e.key === "Enter") sendMessage();
+};
+</script>
+
+</body>
+</html>
+`;
+
+/* -----------------------------------------------------------
+   Google API wrapper (non-streaming)
+------------------------------------------------------------ */
+async function callGemini(contents) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
     MODEL
   )}:generateContent?key=${API_KEY}`;
@@ -45,27 +223,26 @@ async function callGenerateContent(contents) {
   const payload = { contents };
 
   const resp = await axios.post(url, payload, {
-    timeout: 120000,
     headers: { "Content-Type": "application/json" },
+    timeout: 120000,
   });
 
   return resp.data;
 }
 
-/* ============================================================
-   === POST /api/chat  (SSE-like responses) ====================
-   ============================================================ */
+/* -----------------------------------------------------------
+   POST /api/chat — SSE chunking response
+------------------------------------------------------------ */
 app.post("/api/chat", async (req, res) => {
   try {
     const { history = [], systemInstruction = "" } = req.body;
 
-    // Build model payload
     const contents = [];
 
     if (systemInstruction.trim()) {
       contents.push({
         role: "system",
-        parts: [{ text: systemInstruction }],
+        parts: [{ text: systemInstruction }]
       });
     }
 
@@ -74,63 +251,53 @@ app.post("/api/chat", async (req, res) => {
 
       contents.push({
         role: entry.role,
-        parts: entry.parts.map((p) => ({ text: p.text || "" })),
+        parts: entry.parts.map((p) => ({ text: p.text || "" }))
       });
     }
 
-    // Call Google API (non-streaming)
-    const data = await callGenerateContent(contents);
+    const data = await callGemini(contents);
 
-    // Extract final text
-    let fullText = "";
-    try {
-      fullText =
-        data?.candidates?.[0]?.content?.parts?.[0]?.text ??
-        "⚠️ No response from model";
-    } catch (e) {
-      fullText = "⚠️ Model returned unexpected format";
-    }
+    let fullText =
+      data?.candidates?.[0]?.content?.parts?.[0]?.text ??
+      "⚠️ No response from model";
 
-    // Prepare streaming headers (SSE-like)
+    // SSE headers
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
     res.flushHeaders();
 
-    // Stream in small chunks
     const chunks = fullText.match(/.{1,40}/g) || [fullText];
 
     for (const chunk of chunks) {
-      res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
-      await new Promise((r) => setTimeout(r, 15)); // delay for effect
+      res.write(\`data: \${JSON.stringify({ chunk })}\\n\\n\`);
+      await new Promise((r) => setTimeout(r, 15));
     }
 
-    // End stream
-    res.write("event: done\ndata: {}\n\n");
+    res.write("event: done\\ndata: {}\\n\\n");
     res.end();
   } catch (err) {
     console.error("❌ /api/chat error:", err);
 
     res.write(
-      `event: error\ndata: ${JSON.stringify({
-        error: err.message || "Unknown error",
-      })}\n\n`
+      "event: error\\ndata: " +
+        JSON.stringify({ error: err.message || "Unknown error" }) +
+        "\\n\\n"
     );
     res.end();
   }
 });
 
-/* ============================================================
-   === Serve HTML ==============================================
-   ============================================================ */
-
+/* -----------------------------------------------------------
+   Serve HTML
+------------------------------------------------------------ */
 app.get("/", (req, res) => {
   res.send(HTML);
 });
 
-/* ============================================================
-   === Start server ============================================
-   ============================================================ */
+/* -----------------------------------------------------------
+   Start server
+------------------------------------------------------------ */
 app.listen(PORT, () => {
-  console.log(`🚀 Funzo server running at http://localhost:${PORT}`);
+  console.log(\`🚀 Gemini server running at http://localhost:\${PORT}\`);
 });
