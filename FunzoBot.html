@@ -131,9 +131,9 @@
     <script>
         // --- CONFIG & API ---
         const API_URL_BASE = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent';
-        const apiKey = "AIzaSyCD9z2DtyfRO1SkL-XxH1I6dmxSWV7cGks"; 
+        const apiKey = ""; 
 
-        // CRITICAL FIX: Global DOM References (Assigned immediately)
+        // CRITICAL FIX: DOM References defined here, allowing initApp to safely access them.
         const chatMessages = document.getElementById('chat-messages');
         const messageInput = document.getElementById('message-input');
         const sendButton = document.getElementById('send-button');
@@ -179,7 +179,6 @@
 
         function setInputState(disabled) {
             isGenerating = disabled;
-            // Use the now-global variables directly
             sendButton.disabled = disabled;
             messageInput.disabled = disabled;
             messageInput.placeholder = disabled ? "Bot is responding..." : "Ask me anything...";
@@ -189,6 +188,7 @@
         }
 
         function appendMessage(sender, text, isBot, isLoading = false) {
+            // No need for global check here, as variables are assigned at the top
             const messageElement = document.createElement('div');
             messageElement.className = `flex ${isBot ? 'justify-start' : 'justify-end'}`;
             
@@ -330,21 +330,18 @@
         // --- INITIALIZATION ---
 
         function initApp() {
-            // 1. Assign DOM elements to global variables (CRITICAL FIX)
-            window.chatMessages = document.getElementById('chat-messages');
-            window.messageInput = document.getElementById('message-input');
-            window.sendButton = document.getElementById('send-button');
-
-            // 2. Send Initial Welcome Message
+            // 1. Send Initial Welcome Message
             setTimeout(() => {
                 appendMessage('Funzo Bot', "Hello! I'm **Funzo Bot**. Ask me anything—I can write code, explain topics, or just chat!", true);
             }, 200);
 
-            // 3. Set up Listeners (Now that variables are defined)
-            sendButton.addEventListener('click', window.sendMessage);
-            messageInput.addEventListener('keydown', window.handleKeyDown);
+            // 2. Set up Listeners (Now that variables are defined)
+            if (sendButton && messageInput) {
+                sendButton.addEventListener('click', window.sendMessage);
+                messageInput.addEventListener('keydown', window.handleKeyDown);
+            }
             
-            // 4. Set initial input state (unlocked)
+            // 3. Set initial input state (unlocked)
             setInputState(false);
         }
 
