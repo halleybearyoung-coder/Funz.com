@@ -137,15 +137,13 @@
         const MODEL_NAME = 'gemini-2.5-flash-preview-09-2025';
         const API_URL_BASE = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent`;
         
-        // IMPORTANT SECURITY NOTE for GitHub Deployment: 
-        // 1. In this environment (Canvas), the apiKey is automatically provided when it's an empty string.
-        // 2. If you deploy this file to a **public** GitHub Page, you **MUST** replace the "" with your actual key for it to work.
-        // 3. ⚠️ WARNING: Putting your key directly in this file makes it public and insecure! 
-        //    For permanent, secure deployment, you must use a serverless function (like Cloud Functions or AWS Lambda) 
-        //    to hide the key on a public website.
+        // IMPORTANT SECURITY NOTE:
+        // 1. In this environment (Canvas), leave the key empty. It will be provided automatically.
+        // 2. ⚠️ FIX FOR GITHUB: If you deploy this file to a public domain (like GitHub Pages), 
+        //    you MUST replace the empty string below with a NEW, VALID API key you generate.
+        // 3. WARNING: Placing your key directly in this file is highly insecure!
         const apiKey = ""; 
-        // For local testing on your machine or for a public GitHub deployment (INSECURE!), 
-        // uncomment the line below and replace "YOUR_SECRET_API_KEY_HERE" with your key:
+        // Example of where you must place your new key for public deployment:
         // const apiKey = "AIzaSyDIaVqaqzLFoT89S8WJSUKuzeyNJoRr6UI";
 
 
@@ -279,6 +277,13 @@
             
             document.body.removeChild(textarea);
         }
+        
+        // --- Custom Warning Function ---
+        function displayKeyWarning() {
+            if (apiKey === "") {
+                appendMessage('Funzo Bot', "⚠️ **API Key Alert** ⚠️<br><br>The `apiKey` is currently empty. This is correct for running within this Canvas environment. However, if you have pasted this code to **GitHub Pages** or your own local server, you must replace the empty quotes with a **NEW, VALID API key** from your Google AI Studio dashboard for the bot to work.", true);
+            }
+        }
 
         // --- LLM API LOGIC with Retry ---
 
@@ -294,7 +299,7 @@
                     const errorDetails = await response.json().catch(() => ({}));
                     lastError = new Error(`API Error ${response.status}: ${errorDetails.error?.message || response.statusText}`);
                     
-                    // If it's a 4xx error (like 400 Bad Request), don't retry, it's a permanent error
+                    // If it's a 4xx error (like 400 Bad Request or 403 Forbidden), don't retry, it's a permanent error
                     if (response.status >= 400 && response.status < 500) {
                         break;
                     }
@@ -357,7 +362,12 @@
                 console.error("Critical Fetch Error:", error);
                 removeLoadingIndicator();
                 setInputState(false);
-                appendMessage('Funzo Bot', `⚠️ Critical Error: Could not connect to the service. Please check your network and API key. Details: ${error.message}`, true);
+                // Check specifically for the 403 error message related to the key
+                const displayMessage = error.message.includes("403") && error.message.includes("leaked")
+                    ? "⚠️ Critical Error: The API key you used was reported as leaked and has been revoked. You must generate a **new API key** and insert it into the code."
+                    : `⚠️ Critical Error: Could not connect to the service. Details: ${error.message}`;
+                    
+                appendMessage('Funzo Bot', displayMessage, true);
                 chatHistory.pop(); // Remove the user query
             }
         }
@@ -398,8 +408,9 @@
                 messageInput.addEventListener('keydown', window.handleKeyDown);
             }
             
-            // 3. Send Initial Welcome Message
+            // 3. Send Initial Welcome Message and Check for API Key
             setTimeout(() => {
+                displayKeyWarning(); // Check and warn if key is empty
                 appendMessage('Funzo Bot', "Hello! I'm **Funzo Bot**. Ask me anything—I can write code, explain topics, or just chat!", true);
             }, 200);
             
