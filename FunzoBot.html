@@ -142,9 +142,9 @@
         // 2. ⚠️ FIX FOR GITHUB: If you deploy this file to a public domain (like GitHub Pages), 
         //    you MUST replace the empty string below with a NEW, VALID API key you generate.
         // 3. WARNING: Placing your key directly in this file is highly insecure!
-        const apiKey = ""; 
+        const apiKey = "AIzaSyDIaVqaqzLFoT89S8WJSUKuzeyNJoRr6UI"; 
         // Example of where you must place your new key for public deployment:
-        // const apiKey = "AIzaSyDIaVqaqzLFoT89S8WJSUKuzeyNJoRr6UI";
+        // const apiKey = "";
 
 
         // Global DOM element references
@@ -280,7 +280,7 @@
         
         // --- Custom Warning Function ---
         function displayKeyWarning() {
-            if (apiKey === "") {
+            if (apiKey === "AIzaSyDIaVqaqzLFoT89S8WJSUKuzeyNJoRr6UI") {
                 appendMessage('Funzo Bot', "⚠️ **API Key Alert** ⚠️<br><br>The `apiKey` is currently empty. This is correct for running within this Canvas environment. However, if you have pasted this code to **GitHub Pages** or your own local server, you must replace the empty quotes with a **NEW, VALID API key** from your Google AI Studio dashboard for the bot to work.", true);
             }
         }
